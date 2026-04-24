@@ -5,6 +5,10 @@
 
 namespace Microsoft::Terminal::AI
 {
+    // Named constants for AI cost/context limits
+    inline constexpr size_t MaxOutputLengthForDiagnosis{ 2000 };
+    inline constexpr size_t MaxCommandHistoryForPrediction{ 10 };
+
     // Prompt for AI error diagnosis: explain a failed command and suggest a fix.
     // The caller substitutes {command}, {exitCode}, and {output}.
     inline constexpr std::wstring_view ErrorDiagnosisSystemPrompt{
@@ -28,7 +32,7 @@ Do not add any other text, markdown, or formatting.)"
         if (!output.empty())
         {
             // Truncate output to keep costs low
-            const auto truncated = output.substr(0, std::min(output.size(), static_cast<size_t>(2000)));
+            const auto truncated = output.substr(0, std::min(output.size(), MaxOutputLengthForDiagnosis));
             result += L"\n\nOutput:\n";
             result += truncated;
         }
@@ -53,8 +57,8 @@ Do not add any other text, markdown, or formatting.)"
         result += L"\nCurrent directory: ";
         result += cwd.empty() ? L"unknown" : cwd;
         result += L"\nRecent commands (oldest to newest):\n";
-        // Send at most the last 10 commands
-        const auto start = recentCommands.size() > 10 ? recentCommands.size() - 10 : 0;
+        // Send at most the last MaxCommandHistoryForPrediction commands
+        const auto start = recentCommands.size() > MaxCommandHistoryForPrediction ? recentCommands.size() - MaxCommandHistoryForPrediction : 0;
         for (auto i = start; i < recentCommands.size(); ++i)
         {
             result += L"  ";

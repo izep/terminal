@@ -1819,7 +1819,10 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             if (currentCommand.starts_with(L"??"))
             {
                 const auto queryText = currentCommand.size() > 2 ? currentCommand.substr(2) : std::wstring_view{};
-                // Clear the typed line with Ctrl+U
+                // Send Ctrl+U to erase the current line. This follows bash/zsh/fish line-editing
+                // conventions. In PowerShell (which uses different readline bindings) this may
+                // not clear the line; a future improvement could detect the shell and use the
+                // appropriate sequence (e.g., Escape for PSReadLine).
                 _core.SendInput(L"\x15");
                 AIMultiTurnChatRequested.raise(*this, winrt::make<implementation::InlineAIQueryEventArgs>(winrt::hstring{ queryText }));
                 return true;
@@ -1828,7 +1831,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             if (currentCommand.starts_with(L"?") && !currentCommand.starts_with(L"??"))
             {
                 const auto queryText = currentCommand.size() > 1 ? currentCommand.substr(1) : std::wstring_view{};
-                // Clear the typed line with Ctrl+U
+                // Same Ctrl+U caveat as above applies here.
                 _core.SendInput(L"\x15");
                 InlineAIQueryRequested.raise(*this, winrt::make<implementation::InlineAIQueryEventArgs>(winrt::hstring{ queryText }));
                 return true;

@@ -40,6 +40,8 @@ namespace winrt::TerminalApp::implementation
 
     inline constexpr uint32_t DefaultRowsToScroll{ 3 };
     inline constexpr std::wstring_view TabletInputServiceKey{ L"TabletInputService" };
+    // Minimum time between AI next-command predictions, to avoid hammering the API.
+    inline constexpr auto PredictionRateLimit{ std::chrono::seconds(2) };
 
     enum StartupState : int
     {

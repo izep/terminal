@@ -17,6 +17,9 @@
 #include "App.h"
 #include "DebugTapConnection.h"
 #include "MarkdownPaneContent.h"
+#include "AIPaneContent.h"
+#include "../../cascadia/AIService/AIPrompts.h"
+#include "../../cascadia/AIService/CopilotClient.h"
 #include "Remoting.h"
 #include "ScratchpadContent.h"
 #include "SettingsPaneContent.h"
@@ -5835,5 +5838,308 @@ namespace winrt::TerminalApp::implementation
         profileMenuItemFlyout.Items().Append(runAsAdminItem);
 
         return profileMenuItemFlyout;
+    }
+
+    // AI error diagnosis handler.
+    // Called when a shell command finishes with a non-zero exit code (via FTCS_D).
+    // Sends the failed command and its output to the Copilot API, then places the
+    // suggested corrected command into ghost text (PreviewInput) for easy acceptance.
+    Windows::Foundation::IAsyncAction TerminalPage::_CommandFinishedWithErrorHandler(const IInspectable /*sender*/, const Microsoft::Terminal::Control::CommandFinishedWithErrorEventArgs args)
+    {
+        if constexpr (!Feature_AIIntegration::IsEnabled())
+        {
+            co_return;
+        }
+        if (!_settings.GlobalSettings().AIEnabled())
+        {
+            co_return;
+        }
+
+        const auto weak = get_weak();
+        const auto dispatcher = Dispatcher();
+
+        co_await winrt::resume_background();
+
+        Microsoft::Terminal::AI::CopilotClient client{ std::wstring{ _settings.GlobalSettings().AIToken() } };
+        if (!client.HasToken())
+        {
+            co_return;
+        }
+
+        const auto command = std::wstring_view{ args.Command() };
+        const auto output = std::wstring_view{ args.Output() };
+        const auto exitCode = args.ExitCode();
+        const auto model = std::wstring{ _settings.GlobalSettings().AIModel() };
+
+        const auto userPrompt = Microsoft::Terminal::AI::FormatErrorDiagnosisPrompt(command, exitCode, output);
+
+        std::vector<Microsoft::Terminal::AI::ChatMessage> messages{
+            { L"system", std::wstring{ Microsoft::Terminal::AI::ErrorDiagnosisSystemPrompt } },
+            { L"user", userPrompt },
+        };
+
+        const auto response = co_await client.RequestChat(messages, model);
+        if (response.empty())
+        {
+            co_return;
+        }
+
+        // The response format is: corrected command on line 1, explanation on line 2.
+        const auto responseStr = std::wstring_view{ response };
+        const auto newlinePos = responseStr.find(L'\n');
+        const auto correctedCommand = newlinePos != std::wstring_view::npos ? responseStr.substr(0, newlinePos) : responseStr;
+
+        co_await wil::resume_foreground(dispatcher);
+        const auto strong = weak.get();
+        if (!strong)
+        {
+            co_return;
+        }
+
+        if (auto term = _GetActiveControl())
+        {
+            // Place the corrected command as ghost text so it can be accepted with Tab/Right.
+            term.PreviewInput(winrt::hstring{ correctedCommand });
+        }
+    }
+
+    // Next-command prediction handler.
+    // Called when a new prompt appears after a successful command (via FTCS_A).
+    // Asks the AI to predict the most useful next command given recent history and CWD,
+    // then places it into ghost text for easy acceptance.
+    Windows::Foundation::IAsyncAction TerminalPage::_PredictNextCommandHandler(const IInspectable /*sender*/, const IInspectable /*args*/)
+    {
+        if constexpr (!Feature_AIIntegration::IsEnabled())
+        {
+            co_return;
+        }
+        if (!_settings.GlobalSettings().AIEnabled())
+        {
+            co_return;
+        }
+
+        // Rate-limit: skip if a prediction was made in the last 2 seconds to avoid
+        // hammering the API on rapid command sequences.
+        const auto now = std::chrono::steady_clock::now();
+        if (now - _lastPredictionTime < PredictionRateLimit)
+        {
+            co_return;
+        }
+
+        const auto weak = get_weak();
+        const auto dispatcher = Dispatcher();
+
+        // Collect context on the UI thread before going to background.
+        const auto term = _GetActiveControl();
+        if (!term)
+        {
+            co_return;
+        }
+        const auto history = term.CommandHistory();
+        std::vector<std::wstring> recentCommands;
+        for (const auto& cmd : history.Commands())
+        {
+            recentCommands.emplace_back(std::wstring{ cmd });
+        }
+        const auto cwd = std::wstring{ _WindowProperties.VirtualWorkingDirectory() };
+
+        // Get the shell name from the focused profile.
+        std::wstring shellName;
+        if (const auto tab = _GetFocusedTabImpl())
+        {
+            if (const auto profile = tab->GetFocusedProfile())
+            {
+                shellName = std::wstring{ profile.Name() };
+            }
+        }
+
+        co_await winrt::resume_background();
+
+        Microsoft::Terminal::AI::CopilotClient client{ std::wstring{ _settings.GlobalSettings().AIToken() } };
+        if (!client.HasToken())
+        {
+            co_return;
+        }
+
+        const auto model = std::wstring{ _settings.GlobalSettings().AIModel() };
+        const auto userPrompt = Microsoft::Terminal::AI::FormatPredictNextCommandPrompt(recentCommands, cwd, shellName);
+
+        std::vector<Microsoft::Terminal::AI::ChatMessage> messages{
+            { L"system", std::wstring{ Microsoft::Terminal::AI::PredictNextCommandSystemPrompt } },
+            { L"user", userPrompt },
+        };
+
+        const auto response = co_await client.RequestChat(messages, model);
+        if (response.empty())
+        {
+            co_return;
+        }
+
+        // Trim whitespace from the predicted command.
+        auto predicted = std::wstring{ response };
+        const auto trimStart = predicted.find_first_not_of(L" \t\r\n");
+        if (trimStart == std::wstring::npos)
+        {
+            co_return;
+        }
+        const auto trimEnd = predicted.find_last_not_of(L" \t\r\n");
+        predicted = predicted.substr(trimStart, trimEnd - trimStart + 1);
+
+        co_await wil::resume_foreground(dispatcher);
+        const auto strong = weak.get();
+        if (!strong)
+        {
+            co_return;
+        }
+
+        _lastPredictionTime = std::chrono::steady_clock::now();
+        if (auto activeTerm = _GetActiveControl())
+        {
+            activeTerm.PreviewInput(winrt::hstring{ predicted });
+        }
+    }
+
+    // Inline AI query handler.
+    // Called when the user types `? <question>` and presses Enter.
+    // Non-blocking: fires the query, then streams the response into the overlay
+    // panel above the terminal input row while the user can continue working.
+    Windows::Foundation::IAsyncAction TerminalPage::_InlineAIQueryHandler(const IInspectable /*sender*/, const Microsoft::Terminal::Control::InlineAIQueryEventArgs args)
+    {
+        if constexpr (!Feature_AIIntegration::IsEnabled())
+        {
+            co_return;
+        }
+        if (!_settings.GlobalSettings().AIEnabled())
+        {
+            co_return;
+        }
+
+        const auto weak = get_weak();
+        const auto dispatcher = Dispatcher();
+        const auto queryText = std::wstring{ args.QueryText() };
+
+        // Show overlay immediately with empty answer (streams in below).
+        co_await wil::resume_foreground(dispatcher);
+        {
+            const auto strong = weak.get();
+            if (!strong)
+            {
+                co_return;
+            }
+            if (auto term = _GetActiveControl())
+            {
+                term.ShowAIQueryOverlay(queryText, L"…");
+            }
+        }
+
+        co_await winrt::resume_background();
+
+        Microsoft::Terminal::AI::CopilotClient client{ std::wstring{ _settings.GlobalSettings().AIToken() } };
+        if (!client.HasToken())
+        {
+            co_await wil::resume_foreground(dispatcher);
+            if (auto strong = weak.get())
+            {
+                if (auto term = _GetActiveControl())
+                {
+                    term.ShowAIQueryOverlay(queryText, L"[AI token not configured. Set experimental.aiToken in settings.]");
+                }
+            }
+            co_return;
+        }
+
+        const auto cwd = std::wstring{ _WindowProperties.VirtualWorkingDirectory() };
+        std::wstring shellName;
+        if (const auto tab = _GetFocusedTabImpl())
+        {
+            if (const auto profile = tab->GetFocusedProfile())
+            {
+                shellName = std::wstring{ profile.Name() };
+            }
+        }
+
+        const auto model = std::wstring{ _settings.GlobalSettings().AIModel() };
+        const auto userPrompt = Microsoft::Terminal::AI::FormatInlineQueryPrompt(queryText, cwd, shellName);
+
+        std::vector<Microsoft::Terminal::AI::ChatMessage> messages{
+            { L"system", std::wstring{ Microsoft::Terminal::AI::InlineQuerySystemPrompt } },
+            { L"user", userPrompt },
+        };
+
+        // Clear "…" placeholder before streaming starts.
+        co_await wil::resume_foreground(dispatcher);
+        {
+            const auto strong = weak.get();
+            if (!strong)
+            {
+                co_return;
+            }
+            if (auto term = _GetActiveControl())
+            {
+                term.ShowAIQueryOverlay(queryText, L"");
+            }
+        }
+
+        // Stream the response, updating the overlay with each chunk.
+        bool done = false;
+        co_await client.StreamChat(
+            messages,
+            model,
+            [weak, dispatcher, queryText](std::wstring_view chunk) {
+                // Each chunk callback: append delta text to the overlay on the UI thread.
+                // We immediately invoke a fire_and_forget lambda to hop to the UI thread.
+                // Captures are all by value (weak_ref, DispatcherQueue, hstring) so their
+                // lifetimes are independent of the outer coroutine frame.
+                [](winrt::weak_ref<TerminalPage> weak,
+                   winrt::Windows::System::DispatcherQueue dispatcher,
+                   winrt::hstring queryText,
+                   std::wstring chunk) -> winrt::fire_and_forget {
+                    co_await wil::resume_foreground(dispatcher);
+                    if (auto strong = weak.get())
+                    {
+                        if (auto term = strong->_GetActiveControl())
+                        {
+                            term.ShowAIQueryOverlay(queryText, chunk, /*append=*/true);
+                        }
+                    }
+                }(weak, dispatcher, queryText, std::wstring{ chunk });
+            },
+            [&done] { done = true; });
+    }
+
+    // Multi-turn AI chat handler.
+    // Called when the user types `?? <question>` and presses Enter.
+    // Opens the AI chat pane in a split, seeded with the initial question and terminal context.
+    Windows::Foundation::IAsyncAction TerminalPage::_AIMultiTurnChatHandler(const IInspectable /*sender*/, const Microsoft::Terminal::Control::InlineAIQueryEventArgs args)
+    {
+        if constexpr (!Feature_AIIntegration::IsEnabled())
+        {
+            co_return;
+        }
+        if (!_settings.GlobalSettings().AIEnabled())
+        {
+            co_return;
+        }
+
+        const auto weak = get_weak();
+        const auto dispatcher = Dispatcher();
+        const auto queryText = std::wstring{ args.QueryText() };
+
+        co_await wil::resume_foreground(dispatcher);
+        const auto strong = weak.get();
+        if (!strong)
+        {
+            co_return;
+        }
+
+        if (const auto tab = _GetFocusedTabImpl())
+        {
+            const auto aiContent{ winrt::make_self<AIPaneContent>() };
+
+            // Pass in settings so the pane can call the Copilot API itself.
+            aiContent->Initialize(_settings, queryText, _WindowProperties.VirtualWorkingDirectory());
+
+            _SplitPane(tab, SplitDirection::Down, 0.35f, std::make_shared<Pane>(*aiContent));
+        }
     }
 }

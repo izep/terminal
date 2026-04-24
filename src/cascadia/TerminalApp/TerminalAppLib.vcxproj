@@ -80,6 +80,9 @@
     <Page Include="MarkdownPaneContent.xaml">
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="AIPaneContent.xaml">
+      <SubType>Designer</SubType>
+    </Page>
   </ItemGroup>
   <!-- ========================= Headers ======================== -->
   <ItemGroup>
@@ -180,6 +183,9 @@
     </ClInclude>
     <ClInclude Include="MarkdownPaneContent.h">
       <DependentUpon>MarkdownPaneContent.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="AIPaneContent.h">
+      <DependentUpon>AIPaneContent.xaml</DependentUpon>
     </ClInclude>
     <ClInclude Include="WindowsPackageManagerFactory.h" />
   </ItemGroup>
@@ -295,6 +301,10 @@
       <DependentUpon>MarkdownPaneContent.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClCompile>
+    <ClCompile Include="AIPaneContent.cpp">
+      <DependentUpon>AIPaneContent.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </ClCompile>
 
   </ItemGroup>
   <!-- ========================= idl Files ======================== -->
@@ -364,6 +374,10 @@
     </Midl>
     <Midl Include="MarkdownPaneContent.idl">
       <DependentUpon>MarkdownPaneContent.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="AIPaneContent.idl">
+      <DependentUpon>AIPaneContent.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Midl>
   </ItemGroup>
