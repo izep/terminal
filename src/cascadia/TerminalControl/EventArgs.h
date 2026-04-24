@@ -252,6 +252,33 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         til::property<til::CoordType> BufferRow;
     };
 
+    struct CommandFinishedWithErrorEventArgs : public CommandFinishedWithErrorEventArgsT<CommandFinishedWithErrorEventArgs>
+    {
+    public:
+        CommandFinishedWithErrorEventArgs(const winrt::hstring& command,
+                                          const winrt::hstring& output,
+                                          uint32_t exitCode,
+                                          const til::CoordType& bufferRow) :
+            Command(command),
+            Output(output),
+            ExitCode(exitCode),
+            BufferRow(bufferRow) {}
+
+        til::property<winrt::hstring> Command;
+        til::property<winrt::hstring> Output;
+        til::property<uint32_t> ExitCode;
+        til::property<til::CoordType> BufferRow;
+    };
+
+    struct InlineAIQueryEventArgs : public InlineAIQueryEventArgsT<InlineAIQueryEventArgs>
+    {
+    public:
+        explicit InlineAIQueryEventArgs(const winrt::hstring& queryText) :
+            QueryText(queryText) {}
+
+        til::property<winrt::hstring> QueryText;
+    };
+
     struct WindowSizeChangedEventArgs : public WindowSizeChangedEventArgsT<WindowSizeChangedEventArgs>
     {
     public:

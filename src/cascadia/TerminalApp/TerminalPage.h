@@ -257,6 +257,9 @@ namespace winrt::TerminalApp::implementation
 
         uint32_t _systemRowsToScroll{ DefaultRowsToScroll };
 
+        // AI integration state
+        std::chrono::steady_clock::time_point _lastPredictionTime{};
+
         // use a weak reference to prevent circular dependency with AppLogic
         winrt::weak_ref<winrt::TerminalApp::IDialogPresenter> _dialogPresenter;
 
@@ -544,6 +547,11 @@ namespace winrt::TerminalApp::implementation
         void _ShowWindowChangedHandler(const IInspectable sender, const winrt::Microsoft::Terminal::Control::ShowWindowArgs args);
         Windows::Foundation::IAsyncAction _SearchMissingCommandHandler(const IInspectable sender, const winrt::Microsoft::Terminal::Control::SearchMissingCommandEventArgs args);
         static Windows::Foundation::IAsyncOperation<Windows::Foundation::Collections::IVectorView<winrt::Microsoft::Management::Deployment::MatchResult>> _FindPackageAsync(hstring query);
+
+        Windows::Foundation::IAsyncAction _CommandFinishedWithErrorHandler(const IInspectable sender, const winrt::Microsoft::Terminal::Control::CommandFinishedWithErrorEventArgs args);
+        Windows::Foundation::IAsyncAction _PredictNextCommandHandler(const IInspectable sender, const IInspectable args);
+        Windows::Foundation::IAsyncAction _InlineAIQueryHandler(const IInspectable sender, const winrt::Microsoft::Terminal::Control::InlineAIQueryEventArgs args);
+        Windows::Foundation::IAsyncAction _AIMultiTurnChatHandler(const IInspectable sender, const winrt::Microsoft::Terminal::Control::InlineAIQueryEventArgs args);
 
         void _WindowSizeChanged(const IInspectable sender, const winrt::Microsoft::Terminal::Control::WindowSizeChangedEventArgs args);
         void _windowPropertyChanged(const IInspectable& sender, const winrt::Windows::UI::Xaml::Data::PropertyChangedEventArgs& args);

@@ -234,6 +234,8 @@ public:
     void CompletionsChangedCallback(std::function<void(std::wstring_view, unsigned int)> pfn) noexcept;
     void SetSearchMissingCommandCallback(std::function<void(std::wstring_view, const til::CoordType)> pfn) noexcept;
     void SetClearQuickFixCallback(std::function<void()> pfn) noexcept;
+    void SetCommandFinishedWithErrorCallback(std::function<void(std::wstring_view, std::wstring_view, unsigned int, const til::CoordType)> pfn) noexcept;
+    void SetPredictNextCommandCallback(std::function<void()> pfn) noexcept;
     void SetWindowSizeChangedCallback(std::function<void(int32_t, int32_t)> pfn) noexcept;
     void SetSearchHighlights(const std::vector<til::point_span>& highlights) noexcept;
     void SetSearchHighlightFocused(size_t focusedIdx) noexcept;
@@ -342,6 +344,8 @@ private:
     std::function<void(std::wstring_view, unsigned int)> _pfnCompletionsChanged;
     std::function<void(std::wstring_view, const til::CoordType)> _pfnSearchMissingCommand;
     std::function<void()> _pfnClearQuickFix;
+    std::function<void(std::wstring_view, std::wstring_view, unsigned int, const til::CoordType)> _pfnCommandFinishedWithError;
+    std::function<void()> _pfnPredictNextCommand;
     std::function<void(int32_t, int32_t)> _pfnWindowSizeChanged;
 
     RenderSettings _renderSettings;

@@ -3429,6 +3429,50 @@ std::vector<std::wstring> TextBuffer::Commands() const
     return commands;
 }
 
+// Returns the output text for a given MarkExtents (the text between commandEnd and outputEnd).
+// Used by the AI error diagnosis feature to provide context to the LLM.
+std::wstring TextBuffer::GetOutputForMark(const MarkExtents& mark) const
+{
+    if (!mark.commandEnd.has_value() || !mark.outputEnd.has_value())
+    {
+        return {};
+    }
+
+    const auto startY = mark.commandEnd->y;
+    const auto endY = mark.outputEnd->y;
+    const auto startX = mark.commandEnd->x;
+    const auto endX = mark.outputEnd->x;
+
+    std::wstring output;
+    output.reserve(512);
+
+    for (auto y = startY; y <= endY; y++)
+    {
+        const auto& row = GetRowByOffset(y);
+        const auto xBegin = (y == startY) ? startX : 0;
+        const auto xEnd = (y == endY) ? endX : row.size();
+
+        if (xBegin >= xEnd)
+        {
+            continue;
+        }
+
+        const auto rowText = row.GetText(xBegin, xEnd);
+        const auto strEnd = rowText.find_last_not_of(UNICODE_SPACE);
+        if (strEnd != std::wstring_view::npos)
+        {
+            output.append(rowText, 0, strEnd + 1);
+        }
+
+        if (!row.WasWrapForced() && y < endY)
+        {
+            output += L"\n";
+        }
+    }
+
+    return output;
+}
+
 void TextBuffer::StartPrompt()
 {
     const auto currentRowOffset = GetCursor().GetPosition().y;

@@ -20,4 +20,6 @@
 #include "CharSentEventArgs.g.cpp"
 #include "StringSentEventArgs.g.cpp"
 #include "SearchMissingCommandEventArgs.g.cpp"
+#include "CommandFinishedWithErrorEventArgs.g.cpp"
+#include "InlineAIQueryEventArgs.g.cpp"
 #include "WindowSizeChangedEventArgs.g.cpp"

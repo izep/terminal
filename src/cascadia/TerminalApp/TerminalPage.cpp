@@ -1984,6 +1984,15 @@ namespace winrt::TerminalApp::implementation
         term.SearchMissingCommand({ get_weak(), &TerminalPage::_SearchMissingCommandHandler });
         term.WindowSizeChanged({ get_weak(), &TerminalPage::_WindowSizeChanged });
 
+        // AI integration events
+        if constexpr (Feature_AIIntegration::IsEnabled())
+        {
+            term.CommandFinishedWithError({ get_weak(), &TerminalPage::_CommandFinishedWithErrorHandler });
+            term.PredictNextCommand({ get_weak(), &TerminalPage::_PredictNextCommandHandler });
+            term.InlineAIQueryRequested({ get_weak(), &TerminalPage::_InlineAIQueryHandler });
+            term.AIMultiTurnChatRequested({ get_weak(), &TerminalPage::_AIMultiTurnChatHandler });
+        }
+
         // Don't even register for the event if the feature is compiled off.
         if constexpr (Feature_ShellCompletions::IsEnabled())
         {

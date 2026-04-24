@@ -139,6 +139,12 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         auto pfnSearchMissingCommand = [this](auto&& PH1, auto&& PH2) { _terminalSearchMissingCommand(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2)); };
         _terminal->SetSearchMissingCommandCallback(pfnSearchMissingCommand);
 
+        auto pfnCommandFinishedWithError = [this](auto&& PH1, auto&& PH2, auto&& PH3, auto&& PH4) { _terminalCommandFinishedWithError(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2), std::forward<decltype(PH3)>(PH3), std::forward<decltype(PH4)>(PH4)); };
+        _terminal->SetCommandFinishedWithErrorCallback(pfnCommandFinishedWithError);
+
+        auto pfnPredictNextCommand = [this] { _terminalPredictNextCommand(); };
+        _terminal->SetPredictNextCommandCallback(pfnPredictNextCommand);
+
         auto pfnClearQuickFix = [this] { ClearQuickFix(); };
         _terminal->SetClearQuickFixCallback(pfnClearQuickFix);
 
@@ -1689,6 +1695,20 @@ namespace winrt::Microsoft::Terminal::Control::implementation
     void ControlCore::_terminalSearchMissingCommand(std::wstring_view missingCommand, const til::CoordType& bufferRow)
     {
         SearchMissingCommand.raise(*this, make<implementation::SearchMissingCommandEventArgs>(hstring{ missingCommand }, bufferRow));
+    }
+
+    void ControlCore::_terminalCommandFinishedWithError(std::wstring_view command, std::wstring_view output, unsigned int exitCode, const til::CoordType& bufferRow)
+    {
+        CommandFinishedWithError.raise(*this, make<implementation::CommandFinishedWithErrorEventArgs>(
+            hstring{ command },
+            hstring{ output },
+            exitCode,
+            bufferRow));
+    }
+
+    void ControlCore::_terminalPredictNextCommand()
+    {
+        PredictNextCommand.raise(*this, nullptr);
     }
 
     void ControlCore::OpenCWD()

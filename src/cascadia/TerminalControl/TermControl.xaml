@@ -1386,6 +1386,90 @@
             </Border>
         </Grid>
 
+        <!--
+            AI query overlay (inline AI query via `?` prefix).
+            Positioned at the bottom of the control, above the terminal input row.
+            Shown when the user types `? <question>` and presses Enter.
+            Dismissed by pressing Escape or clicking the close button.
+        -->
+        <Border x:Name="AIQueryOverlay"
+                Margin="8,0,8,8"
+                Padding="8,6,8,6"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Bottom"
+                Background="{ThemeResource SystemControlBackgroundAltHighBrush}"
+                BorderBrush="{ThemeResource SystemAccentColorLight1}"
+                BorderThickness="1"
+                CornerRadius="{ThemeResource OverlayCornerRadius}"
+                IsHitTestVisible="True"
+                Visibility="Collapsed"
+                x:Load="False">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!--  "AI" label  -->
+                <StackPanel Grid.Row="0"
+                            Grid.Column="0"
+                            Orientation="Horizontal">
+                    <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                              FontSize="12"
+                              Foreground="{ThemeResource SystemAccentColorLight1}"
+                              Glyph="&#xe946;" />
+                    <!--  Sparkle / AI icon  -->
+                    <TextBlock Margin="4,0,0,0"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{ThemeResource SystemAccentColorLight1}"
+                               Text="AI" />
+                    <TextBlock x:Name="AIQueryQuestion"
+                               Margin="8,0,0,0"
+                               FontSize="11"
+                               Foreground="{ThemeResource SystemControlForegroundBaseHighBrush}"
+                               MaxLines="1"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+
+                <!--  Close button  -->
+                <Button x:Name="AIQueryCloseButton"
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Width="20"
+                        Height="20"
+                        Padding="2"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Click="_AIQueryOverlay_CloseClick"
+                        FontSize="10">
+                    <FontIcon FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                              FontSize="10"
+                              Glyph="&#xe8bb;" />
+                </Button>
+
+                <!--  Answer text  -->
+                <ScrollViewer x:Name="AIQueryAnswerScroller"
+                              Grid.Row="1"
+                              Grid.ColumnSpan="2"
+                              MaxHeight="120"
+                              IsVerticalScrollChainingEnabled="False">
+                    <TextBlock x:Name="AIQueryAnswer"
+                               Margin="0,4,0,0"
+                               FontSize="12"
+                               Foreground="{ThemeResource SystemControlForegroundBaseHighBrush}"
+                               IsTextSelectionEnabled="True"
+                               TextWrapping="Wrap" />
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="QuickFixButtonStates">
                 <VisualState x:Name="Normal" />

@@ -459,3 +459,13 @@ void ConhostInternalGetSet::SearchMissingCommand(std::wstring_view /*missingComm
 {
     // Not implemented for conhost.
 }
+
+void ConhostInternalGetSet::NotifyCommandFinishedWithError(std::wstring_view /*command*/, std::wstring_view /*output*/, unsigned int /*exitCode*/, til::CoordType /*bufferRow*/)
+{
+    // Not implemented for conhost - AI integration is a Terminal app feature.
+}
+
+void ConhostInternalGetSet::NotifyPredictNextCommand()
+{
+    // Not implemented for conhost - AI integration is a Terminal app feature.
+}

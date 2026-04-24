@@ -303,6 +303,7 @@ public:
     void ClearAllMarks();
     std::wstring CurrentCommand() const;
     std::vector<std::wstring> Commands() const;
+    std::wstring GetOutputForMark(const MarkExtents& mark) const;
     void StartPrompt();
     bool StartCommand();
     bool StartOutput();

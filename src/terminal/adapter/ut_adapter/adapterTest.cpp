@@ -233,6 +233,16 @@ public:
         Log::Comment(L"SearchMissingCommand MOCK called...");
     }
 
+    void NotifyCommandFinishedWithError(std::wstring_view /*command*/, std::wstring_view /*output*/, unsigned int /*exitCode*/, til::CoordType /*bufferRow*/) override
+    {
+        Log::Comment(L"NotifyCommandFinishedWithError MOCK called...");
+    }
+
+    void NotifyPredictNextCommand() override
+    {
+        Log::Comment(L"NotifyPredictNextCommand MOCK called...");
+    }
+
     void PrepData()
     {
         PrepData(CursorDirection::UP); // if called like this, the cursor direction doesn't matter.

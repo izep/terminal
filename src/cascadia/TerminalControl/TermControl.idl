@@ -82,6 +82,10 @@ namespace Microsoft.Terminal.Control
         event Windows.Foundation.TypedEventHandler<Object, CharSentEventArgs> CharSent;
         event Windows.Foundation.TypedEventHandler<Object, StringSentEventArgs> StringSent;
         event Windows.Foundation.TypedEventHandler<Object, SearchMissingCommandEventArgs> SearchMissingCommand;
+        event Windows.Foundation.TypedEventHandler<Object, CommandFinishedWithErrorEventArgs> CommandFinishedWithError;
+        event Windows.Foundation.TypedEventHandler<Object, Object> PredictNextCommand;
+        event Windows.Foundation.TypedEventHandler<Object, InlineAIQueryEventArgs> InlineAIQueryRequested;
+        event Windows.Foundation.TypedEventHandler<Object, InlineAIQueryEventArgs> AIMultiTurnChatRequested;
 
 
         Microsoft.UI.Xaml.Controls.CommandBarFlyout ContextMenu { get; };

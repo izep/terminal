@@ -160,6 +160,19 @@ namespace Microsoft.Terminal.Control
         Int32 BufferRow { get; };
     }
 
+    runtimeclass CommandFinishedWithErrorEventArgs
+    {
+        String Command { get; };
+        String Output { get; };
+        UInt32 ExitCode { get; };
+        Int32 BufferRow { get; };
+    }
+
+    runtimeclass InlineAIQueryEventArgs
+    {
+        String QueryText { get; };
+    }
+
     runtimeclass WindowSizeChangedEventArgs
     {
         Int32 Width;
