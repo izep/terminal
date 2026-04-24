@@ -73,6 +73,8 @@ public:
     void InvokeCompletions(std::wstring_view menuJson, unsigned int replaceLength) override;
 
     void SearchMissingCommand(std::wstring_view missingCommand) override;
+    void NotifyCommandFinishedWithError(std::wstring_view command, std::wstring_view output, unsigned int exitCode, til::CoordType bufferRow) override;
+    void NotifyPredictNextCommand() override;
 
 private:
     Microsoft::Console::IIoProvider& _io;

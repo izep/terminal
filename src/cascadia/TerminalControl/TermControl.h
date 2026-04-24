@@ -186,6 +186,9 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         void RefreshQuickFixMenu();
         void ClearQuickFix();
 
+        void ShowAIQueryOverlay(std::wstring_view question, std::wstring_view answer, bool append = false);
+        void HideAIQueryOverlay();
+
         void Detach();
 
         TerminalConnection::ITerminalConnection Connection();
@@ -215,6 +218,10 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         til::typed_event<IInspectable, Control::CharSentEventArgs> CharSent;
         til::typed_event<IInspectable, Control::StringSentEventArgs> StringSent;
         til::typed_event<IInspectable, Control::SearchMissingCommandEventArgs> SearchMissingCommand;
+        til::typed_event<IInspectable, Control::CommandFinishedWithErrorEventArgs> CommandFinishedWithError;
+        til::typed_event<> PredictNextCommand;
+        til::typed_event<IInspectable, Control::InlineAIQueryEventArgs> InlineAIQueryRequested;
+        til::typed_event<IInspectable, Control::InlineAIQueryEventArgs> AIMultiTurnChatRequested;
         til::typed_event<IInspectable, Control::WindowSizeChangedEventArgs> WindowSizeChanged;
 
         // UNDER NO CIRCUMSTANCES SHOULD YOU ADD A (PROJECTED_)FORWARDED_TYPED_EVENT HERE
@@ -435,8 +442,14 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         void _showContextMenuAt(const winrt::Windows::Foundation::Point& controlRelativePos);
 
         void _bubbleSearchMissingCommand(const IInspectable& sender, const Control::SearchMissingCommandEventArgs& args);
+        void _bubbleCommandFinishedWithError(const IInspectable& sender, const Control::CommandFinishedWithErrorEventArgs& args);
+        void _bubblePredictNextCommand(const IInspectable& sender, const IInspectable& args);
         winrt::fire_and_forget _bubbleWindowSizeChanged(const IInspectable& sender, Control::WindowSizeChangedEventArgs args);
         til::CoordType _calculateSearchScrollOffset() const;
+
+        void _AIQueryOverlay_CloseClick(const winrt::Windows::Foundation::IInspectable& sender, const winrt::Windows::UI::Xaml::RoutedEventArgs& args);
+        void _ShowAIQueryOverlay(std::wstring_view question, std::wstring_view answer, bool append = false);
+        void _HideAIQueryOverlay();
 
         void _PasteCommandHandler(const IInspectable& sender, const IInspectable& args);
         void _CopyCommandHandler(const IInspectable& sender, const IInspectable& args);
@@ -468,6 +481,8 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             Control::ControlCore::CompletionsChanged_revoker CompletionsChanged;
             Control::ControlCore::RestartTerminalRequested_revoker RestartTerminalRequested;
             Control::ControlCore::SearchMissingCommand_revoker SearchMissingCommand;
+            Control::ControlCore::CommandFinishedWithError_revoker CommandFinishedWithError;
+            Control::ControlCore::PredictNextCommand_revoker PredictNextCommand;
             Control::ControlCore::RefreshQuickFixUI_revoker RefreshQuickFixUI;
             Control::ControlCore::WindowSizeChanged_revoker WindowSizeChanged;
 

@@ -328,6 +328,8 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         _revokers.CompletionsChanged = _core.CompletionsChanged(winrt::auto_revoke, { get_weak(), &TermControl::_bubbleCompletionsChanged });
         _revokers.RestartTerminalRequested = _core.RestartTerminalRequested(winrt::auto_revoke, { get_weak(), &TermControl::_bubbleRestartTerminalRequested });
         _revokers.SearchMissingCommand = _core.SearchMissingCommand(winrt::auto_revoke, { get_weak(), &TermControl::_bubbleSearchMissingCommand });
+        _revokers.CommandFinishedWithError = _core.CommandFinishedWithError(winrt::auto_revoke, { get_weak(), &TermControl::_bubbleCommandFinishedWithError });
+        _revokers.PredictNextCommand = _core.PredictNextCommand(winrt::auto_revoke, { get_weak(), &TermControl::_bubblePredictNextCommand });
         _revokers.WindowSizeChanged = _core.WindowSizeChanged(winrt::auto_revoke, { get_weak(), &TermControl::_bubbleWindowSizeChanged });
         _revokers.WriteToClipboard = _core.WriteToClipboard(winrt::auto_revoke, { get_weak(), &TermControl::_bubbleWriteToClipboard });
 
@@ -1803,6 +1805,37 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         if (GetTSFHandle().HasActiveComposition())
         {
             return true;
+        }
+
+        // Inline AI query (`?` prefix) and multi-turn AI chat (`??` prefix).
+        // When the user presses Enter and shell integration is enabled, check if the
+        // current command starts with `?` or `??`. If so, intercept it, clear the
+        // input line, and raise the appropriate event — without sending Enter to the PTY.
+        if (keyDown && vkey == VK_RETURN && modifiers == ControlKeyStates{})
+        {
+            const auto history = _core.CommandHistory();
+            const auto currentCommand = std::wstring_view{ history.CurrentCommandline() };
+            // `??` prefix → multi-turn AI chat
+            if (currentCommand.starts_with(L"??"))
+            {
+                const auto queryText = currentCommand.size() > 2 ? currentCommand.substr(2) : std::wstring_view{};
+                // Send Ctrl+U to erase the current line. This follows bash/zsh/fish line-editing
+                // conventions. In PowerShell (which uses different readline bindings) this may
+                // not clear the line; a future improvement could detect the shell and use the
+                // appropriate sequence (e.g., Escape for PSReadLine).
+                _core.SendInput(L"\x15");
+                AIMultiTurnChatRequested.raise(*this, winrt::make<implementation::InlineAIQueryEventArgs>(winrt::hstring{ queryText }));
+                return true;
+            }
+            // `?` prefix (but not `??`) → inline AI query
+            if (currentCommand.starts_with(L"?") && !currentCommand.starts_with(L"??"))
+            {
+                const auto queryText = currentCommand.size() > 1 ? currentCommand.substr(1) : std::wstring_view{};
+                // Same Ctrl+U caveat as above applies here.
+                _core.SendInput(L"\x15");
+                InlineAIQueryRequested.raise(*this, winrt::make<implementation::InlineAIQueryEventArgs>(winrt::hstring{ queryText }));
+                return true;
+            }
         }
 
         if (_TrySendKeyEvent(vkey, scanCode, modifiers, keyDown))
@@ -4062,6 +4095,16 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         SearchMissingCommand.raise(*this, args);
     }
 
+    void TermControl::_bubbleCommandFinishedWithError(const IInspectable& /*sender*/, const Control::CommandFinishedWithErrorEventArgs& args)
+    {
+        CommandFinishedWithError.raise(*this, args);
+    }
+
+    void TermControl::_bubblePredictNextCommand(const IInspectable& /*sender*/, const IInspectable& /*args*/)
+    {
+        PredictNextCommand.raise(*this, nullptr);
+    }
+
     winrt::fire_and_forget TermControl::_bubbleWindowSizeChanged(const IInspectable& /*sender*/, Control::WindowSizeChangedEventArgs args)
     {
         auto weakThis{ get_weak() };
@@ -4092,6 +4135,58 @@ namespace winrt::Microsoft::Terminal::Control::implementation
     void TermControl::ClearQuickFix()
     {
         _core.ClearQuickFix();
+    }
+
+    // Show (or update) the AI query overlay with the given question and answer text.
+    // If append is true, the answer text is appended to any existing text (for streaming).
+    void TermControl::_ShowAIQueryOverlay(std::wstring_view question, std::wstring_view answer, bool append)
+    {
+        if (const auto overlay = AIQueryOverlay(); overlay != nullptr)
+        {
+            if (const auto q = AIQueryQuestion())
+            {
+                q.Text(winrt::hstring{ question });
+            }
+            if (const auto a = AIQueryAnswer())
+            {
+                if (append)
+                {
+                    a.Text(a.Text() + winrt::hstring{ answer });
+                }
+                else
+                {
+                    a.Text(winrt::hstring{ answer });
+                }
+            }
+            overlay.Visibility(winrt::Windows::UI::Xaml::Visibility::Visible);
+        }
+    }
+
+    void TermControl::_HideAIQueryOverlay()
+    {
+        if (const auto overlay = AIQueryOverlay(); overlay != nullptr)
+        {
+            overlay.Visibility(winrt::Windows::UI::Xaml::Visibility::Collapsed);
+            if (const auto a = AIQueryAnswer())
+            {
+                a.Text(L"");
+            }
+        }
+    }
+
+    void TermControl::_AIQueryOverlay_CloseClick(const IInspectable& /*sender*/, const winrt::Windows::UI::Xaml::RoutedEventArgs& /*args*/)
+    {
+        _HideAIQueryOverlay();
+    }
+
+    void TermControl::ShowAIQueryOverlay(std::wstring_view question, std::wstring_view answer, bool append)
+    {
+        _ShowAIQueryOverlay(question, answer, append);
+    }
+
+    void TermControl::HideAIQueryOverlay()
+    {
+        _HideAIQueryOverlay();
     }
 
     void TermControl::_PasteCommandHandler(const IInspectable& /*sender*/,

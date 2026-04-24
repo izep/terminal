@@ -1,0 +1,21 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
+import "IPaneContent.idl";
+
+namespace TerminalApp
+{
+    [default_interface] runtimeclass AIPaneContent : Windows.UI.Xaml.Controls.UserControl,
+                                                     IPaneContent,
+                                                     Windows.UI.Xaml.Data.INotifyPropertyChanged
+    {
+        AIPaneContent();
+
+        void Initialize(
+            Microsoft.Terminal.Settings.Model.CascadiaSettings settings,
+            String initialQuery,
+            String cwd);
+
+        Boolean IsIdle { get; };
+    }
+}

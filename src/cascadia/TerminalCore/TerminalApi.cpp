@@ -410,3 +410,19 @@ void Terminal::NotifyShellIntegrationMark()
     // Notify the scrollbar that marks have been added so it can refresh the mark indicators
     _NotifyScrollEvent();
 }
+
+void Terminal::NotifyCommandFinishedWithError(std::wstring_view command, std::wstring_view output, unsigned int exitCode, til::CoordType bufferRow)
+{
+    if (_pfnCommandFinishedWithError)
+    {
+        _pfnCommandFinishedWithError(command, output, exitCode, bufferRow);
+    }
+}
+
+void Terminal::NotifyPredictNextCommand()
+{
+    if (_pfnPredictNextCommand)
+    {
+        _pfnPredictNextCommand();
+    }
+}

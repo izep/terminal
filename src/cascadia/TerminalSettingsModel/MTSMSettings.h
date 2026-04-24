@@ -71,7 +71,10 @@ Author(s):
     X(winrt::Windows::Foundation::Collections::IVector<Model::NewTabMenuEntry>, NewTabMenu, "newTabMenu", winrt::single_threaded_vector<Model::NewTabMenuEntry>({ Model::RemainingProfilesEntry{} })) \
     X(bool, AllowHeadless, "compatibility.allowHeadless", false)                                                                                                                                      \
     X(hstring, SearchWebDefaultQueryUrl, "searchWebDefaultQueryUrl", L"https://www.bing.com/search?q=%22%s%22")                                                                                       \
-    X(bool, ShowTabsFullscreen, "showTabsFullscreen", false)
+    X(bool, ShowTabsFullscreen, "showTabsFullscreen", false)                                                                                                                                             \
+    X(bool, AIEnabled, "experimental.aiEnabled", false)                                                                                                                                                  \
+    X(hstring, AIToken, "experimental.aiToken", L"")                                                                                                                                                     \
+    X(hstring, AIModel, "experimental.aiModel", L"gpt-4o")
 
 // Also add these settings to:
 // * Profile.idl

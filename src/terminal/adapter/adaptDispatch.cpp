@@ -3712,6 +3712,19 @@ void AdaptDispatch::DoFinalTermAction(const std::wstring_view string)
         {
         case L'A': // FTCS_PROMPT
         {
+            // Before starting a new prompt, check if the last completed command succeeded.
+            // If so, fire the predict-next-command callback so the AI can suggest what to run next.
+            {
+                const auto recentMarks = _pages.ActivePage().Buffer().GetMarkExtents(1u);
+                if (!recentMarks.empty())
+                {
+                    const auto& lastMark = recentMarks.back();
+                    if (lastMark.data.category == MarkCategory::Success)
+                    {
+                        _api.NotifyPredictNextCommand();
+                    }
+                }
+            }
             _pages.ActivePage().Buffer().StartPrompt();
             _api.NotifyShellIntegrationMark();
             break;
@@ -3747,6 +3760,46 @@ void AdaptDispatch::DoFinalTermAction(const std::wstring_view string)
 
             _pages.ActivePage().Buffer().EndCurrentCommand(error);
             _api.NotifyShellIntegrationMark();
+
+            // AI error diagnosis: when a command finishes with a non-zero exit code, fire the
+            // command-finished-with-error callback so the AI can diagnose it and suggest a fix.
+            if (error.has_value() && *error != 0)
+            {
+                const auto& textBuffer = _pages.ActivePage().Buffer();
+                const auto recentMarks = textBuffer.GetMarkExtents(1u);
+                if (!recentMarks.empty())
+                {
+                    const auto& mark = recentMarks.back();
+                    // Build the command text.
+                    std::wstring commandText;
+                    if (mark.HasCommand())
+                    {
+                        // command is between mark.end and mark.commandEnd
+                        const auto cmdStart = mark.end;
+                        const auto cmdEnd = *mark.commandEnd;
+                        for (auto y = cmdStart.y; y <= cmdEnd.y; ++y)
+                        {
+                            const auto& row = textBuffer.GetRowByOffset(y);
+                            const auto xStart = (y == cmdStart.y) ? cmdStart.x : 0;
+                            const auto xEnd = (y == cmdEnd.y) ? cmdEnd.x : row.size();
+                            if (xStart < xEnd)
+                            {
+                                const auto text = row.GetText(xStart, xEnd);
+                                const auto trimmed = text.find_last_not_of(UNICODE_SPACE);
+                                if (trimmed != std::wstring_view::npos)
+                                {
+                                    commandText.append(text, 0, trimmed + 1);
+                                }
+                            }
+                        }
+                    }
+                    // Build the output text.
+                    const auto outputText = textBuffer.GetOutputForMark(mark);
+                    // Get the row of this mark for UI positioning.
+                    const auto bufferRow = mark.start.y;
+                    _api.NotifyCommandFinishedWithError(commandText, outputText, *error, bufferRow);
+                }
+            }
 
             break;
         }
